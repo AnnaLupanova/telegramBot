@@ -3,7 +3,8 @@ from typing import Dict, List, Tuple
 
 import sqlite3
 
-conn = sqlite3.connect("finance.db")
+
+conn = sqlite3.connect(os.path.join("./", "finance.db"))
 cursor = conn.cursor()
 
 
@@ -18,6 +19,7 @@ def insert(table: str, column_values: Dict):
         values)
     conn.commit()
 
+
 def fetchall(table: str, columns: List[str]) -> List[Tuple]:
     columns_joined = ", ".join(columns)
     cursor.execute(f"SELECT {columns_joined} FROM {table}")
@@ -31,15 +33,14 @@ def fetchall(table: str, columns: List[str]) -> List[Tuple]:
     return result
 
 
-def delete(table: str, row_id: int) -> None:
+def delete(table: str, row_id: int, user_id: int) -> None:
     row_id = int(row_id)
-    cursor.execute(f"delete from {table} where id={row_id}")
+    cursor.execute(f"delete from {table} where id={row_id} and user_id='{user_id}'")
     conn.commit()
 
 
 def get_cursor():
     return cursor
-
 
 def _init_db():
     """Инициализирует БД"""
@@ -47,6 +48,13 @@ def _init_db():
         sql = f.read()
     cursor.executescript(sql)
     conn.commit()
+
+def get_user():
+    cursor.execute("select user_id from user_table")
+    user_id = list(cursor.fetchall())
+    return user_id
+
+
 
 
 def check_db_exists():
@@ -59,3 +67,5 @@ def check_db_exists():
     _init_db()
 
 check_db_exists()
+
+get_user()
