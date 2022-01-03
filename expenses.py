@@ -18,7 +18,7 @@ class Message(NamedTuple):
 class Expense(NamedTuple):
     """Структура добавленного в БД нового расхода"""
     id: Optional[int]
-    amount: int
+    amount: float
     category_name: str
 
 
@@ -77,21 +77,25 @@ def get_month_statistics(user_id: str) -> str:
                    f"and category_codename in (select codename "
                    f"from category where is_base_expense=true)")
     result = cursor.fetchone()
+
     base_today_expenses = result[0] if result[0] else 0
+
     return (f"Расходы в текущем месяце:\n"
             f"всего — {all_today_expenses} руб.\n"
+            
             f"базовые — {base_today_expenses} руб. из "
             f"{_get_budget_limit()} руб.")
 
 
 def last(user_id: str) -> List[Expense]:
     """Возвращает последние несколько расходов"""
+    now = _get_now_datetime()
+    first_day_of_month = f'{now.year:04d}-{now.month:02d}-01'
     cursor = db.get_cursor()
     cursor.execute(
-        "select e.id, e.amount, e.raw_text "
+        "select e.id, e.amount, c.name , e.created "
         "from expense e left join category c "
-        f"on c.codename=e.category_codename where e.user_id = '{user_id}'"
-        "order by created desc limit 15")
+        f"on c.codename=e.category_codename where e.user_id = '{user_id}' and date(e.created) >= '{first_day_of_month}'")
     rows = cursor.fetchall()
     last_expenses = [Expense(id=row[0], amount=row[1], category_name=row[2]) for row in rows]
     return last_expenses
@@ -104,15 +108,23 @@ def delete_expense(row_id: int, user_id: str) -> None:
 
 def _parse_message(raw_message: str) -> Message:
     """Парсит текст пришедшего сообщения о новом расходе."""
-    regexp_result = re.match(r"([\d ]+) (.*)", raw_message)
-    if not regexp_result or not regexp_result.group(0) \
-            or not regexp_result.group(1) or not regexp_result.group(2):
+    regexp_result = raw_message.split(' ')
+
+    #regexp_result = re.match(r"([\d ]+) (.*)", raw_message)
+    if not regexp_result[0] or not regexp_result[1]:
         raise exceptions.NotCorrectMessage(
             "Не могу понять сообщение. Напишите сообщение в формате, "
             "например:\n1500 метро")
+    #if not regexp_result or not regexp_result.group(0) \
+     #       or not regexp_result.group(1) or not regexp_result.group(2):
+      #  raise exceptions.NotCorrectMessage(
+       #     "Не могу понять сообщение. Напишите сообщение в формате, "
+        #    "например:\n1500 метро")
 
-    amount = regexp_result.group(1).replace(" ", "")
-    category_text = regexp_result.group(2).strip().lower()
+   # amount = regexp_result.group(1).replace(" ", "")
+    #category_text = regexp_result.group(2).strip().lower()
+    amount = regexp_result[0]
+    category_text = regexp_result[1].strip().lower()
     return Message(amount=amount, category_text=category_text)
 
 
